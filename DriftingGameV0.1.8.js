@@ -88,7 +88,7 @@
     "#......X.........#",
     "##################",
   ];
-  const START_LEVEL = 8; // 0-based campaign level index for testing.
+  const START_LEVEL = 0; // 0-based campaign level index for testing.
   const SAVE_STORAGE_KEY = "drifty-save-v1";
 
   const LEVELS = [
