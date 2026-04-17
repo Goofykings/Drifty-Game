@@ -66,29 +66,14 @@
   const TAG_PUSH_VELOCITY = 500;
   const TAG_COLLISION_DAMPING = 0.92;
   const CAR_SPRITE_BASE_PATH = "car-sprites-v4-base.png";
-  const CAR_SPRITE_MASK_PATH = "car-sprites-v4-mask.png";
+  const CAR_SPRITE_MASK_PATH = "car-sprites-v5-mask.png";
   const CAR_VARIANTS = [
     { id: "coupe", name: "Coupe", sprite: { x: 80, y: 228, w: 318, h: 496, renderWidth: 37.6, renderHeight: 68 } },
     { id: "wedge", name: "Formula", sprite: { x: 425, y: 184, w: 334, h: 523, renderWidth: 32.8, renderHeight: 76.8 } },
     { id: "muscle", name: "GT", sprite: { x: 796, y: 248, w: 297, h: 474, renderWidth: 39.2, renderHeight: 68 } },
     { id: "roadster", name: "Roadster", sprite: { x: 1146, y: 246, w: 301, h: 476, renderWidth: 37.6, renderHeight: 68 } },
   ];
-  const LEVEL_6_MAP_ORIGINAL = [
-    "###################",
-    "X................#",
-    "X..............S.#",
-    "X................#",
-    "X...##############",
-    "#................X",
-    "#................X",
-    "#XXXXXXXXXXXX....X",
-    "#...........X....#",
-    "#...........X....#",
-    "#..G...X.........#",
-    "#......X.........#",
-    "##################",
-  ];
-  const START_LEVEL = 0; // 0-based campaign level index for testing.
+  const START_LEVEL = 8; // 0-based campaign level index for testing.
   const SAVE_STORAGE_KEY = "drifty-save-v1";
 
   const LEVELS = [
@@ -194,11 +179,25 @@
       "##########################",
      ],
    },
-    {
-      name: "Level 6",
-      startAngle: 3.14,
-      map: LEVEL_6_MAP_ORIGINAL, // Swap to LEVEL_6_MAP_HARDER to use the tougher layout again.
-    },
+     {
+       name: "Level 6",
+       startAngle: 3.14,
+       map: [
+         "###################",
+         "X................#",
+         "X..............S.#",
+         "X................#",
+         "X...##############",
+         "#................X",
+         "#................X",
+         "#XXXXXXXXXXXX....X",
+         "#...........X....#",
+         "#...........X....#",
+         "#..G...X.........#",
+         "#......X.........#",
+         "##################",
+       ],
+     },
    {
      name: "Level 10",
      startAngle: -1.57,
@@ -812,16 +811,19 @@
       document.body.appendChild(this.canvas);
       this.colorInput = document.createElement("input");
       this.colorInput.type = "color";
+      this.colorInput.className = "drift-color-input";
       this.colorInput.setAttribute("aria-label", "Car color");
       this.colorInput.style.position = "absolute";
       this.colorInput.style.zIndex = "5";
-      this.colorInput.style.width = "120px";
-      this.colorInput.style.height = "56px";
+      this.colorInput.style.width = "220px";
+      this.colorInput.style.height = "76px";
       this.colorInput.style.padding = "0";
-      this.colorInput.style.border = "2px solid rgba(180, 235, 255, 0.5)";
-      this.colorInput.style.borderRadius = "14px";
-      this.colorInput.style.background = "rgba(8, 20, 30, 0.92)";
-      this.colorInput.style.boxShadow = "0 0 24px rgba(98, 198, 255, 0.18)";
+      this.colorInput.style.border = "0";
+      this.colorInput.style.borderRadius = "18px";
+      this.colorInput.style.background = "transparent";
+      this.colorInput.style.boxShadow = "none";
+      this.colorInput.style.opacity = "0.001";
+      this.colorInput.style.cursor = "pointer";
       this.colorInput.style.display = "none";
       document.body.appendChild(this.colorInput);
 
@@ -874,6 +876,7 @@
       this.hoveredCompletionButton = null;
       this.hoveredHomeConfirmButton = null;
       this.gameExitHover = 0;
+      this.hudToggleHover = 0;
       this.completionHomeHover = 0;
       this.completionReplayHover = 0;
       this.completionNextHover = 0;
@@ -901,6 +904,8 @@
       this.death_counter = 0;
       this.speedrunTouchedWall = false;
       this.homeConfirmOpen = false;
+      this.hudCollapsed = false;
+      this.hudCollapseAnim = 0;
       this.playerCarColor = "#909090";
       this.playerCarVariant = CAR_VARIANTS[0].id;
       this.loadPersistentProgress();
@@ -955,6 +960,31 @@
       document.body.style.background = "#020409";
       document.body.style.fontFamily = "Consolas, Menlo, monospace";
       document.body.innerHTML = "";
+      let colorInputStyle = document.getElementById("drift-color-input-style");
+      if (!colorInputStyle) {
+        colorInputStyle = document.createElement("style");
+        colorInputStyle.id = "drift-color-input-style";
+        colorInputStyle.textContent = `
+          .drift-color-input {
+            appearance: none;
+            -webkit-appearance: none;
+            overflow: hidden;
+            cursor: pointer;
+          }
+          .drift-color-input::-webkit-color-swatch-wrapper {
+            padding: 0;
+          }
+          .drift-color-input::-webkit-color-swatch {
+            border: none;
+            border-radius: 12px;
+          }
+          .drift-color-input::-moz-color-swatch {
+            border: none;
+            border-radius: 12px;
+          }
+        `;
+        document.head.appendChild(colorInputStyle);
+      }
     }
 
     resize() {
@@ -1243,6 +1273,35 @@
       };
     }
 
+    getCampaignHUDLayout() {
+      const panelX = 24;
+      const panelY = 70;
+      const panelW = 388;
+      const worldInfo = this.getCampaignWorldInfo();
+      const statLines = this.gameMode === "speedrun"
+        ? [
+            `Level Time  ${formatTime(this.levelTimer)}`,
+            `Total Time  ${formatTime(this.totalTimer)}`,
+            `Damage      ${Math.round(this.totalDamage)}`,
+            `Status      ${this.getDamageStatus()}`,
+          ]
+        : [
+            `Level Time  ${formatTime(this.levelTimer)}`,
+            `Damage      ${Math.round(this.totalDamage)}`,
+            `Status      ${this.getDamageStatus()}`,
+          ];
+      const panelH = 132 + statLines.length * 26 + 34;
+      return {
+        panelX,
+        panelY,
+        panelW,
+        panelH,
+        worldInfo,
+        statLines,
+        maxTextWidth: panelW - 40,
+      };
+    }
+
     getCampaignCompleteButtons() {
       const width = 144;
       const height = 54;
@@ -1471,6 +1530,17 @@
       ];
     }
 
+    getCustomizationColorPickerRect() {
+      const width = Math.min(240, this.width * 0.22);
+      const height = 76;
+      return {
+        x: this.width * 0.5 - width * 0.5,
+        y: this.height * 0.66 - 8,
+        w: width,
+        h: height,
+      };
+    }
+
     onCanvasPointerMove(event) {
       const bounds = this.canvas.getBoundingClientRect();
       this.mouse.x = event.clientX - bounds.left;
@@ -1610,14 +1680,20 @@
         return;
       }
 
+      const hudToggleButton = this.getHUDToggleButton();
+      const hoveredHudToggle = hudToggleButton &&
+        this.mouse.x >= hudToggleButton.x &&
+        this.mouse.x <= hudToggleButton.x + hudToggleButton.w &&
+        this.mouse.y >= hudToggleButton.y &&
+        this.mouse.y <= hudToggleButton.y + hudToggleButton.h;
       const button = this.getGameExitButton();
-      const hovered =
+      const hoveredMenu =
         this.mouse.x >= button.x &&
         this.mouse.x <= button.x + button.w &&
         this.mouse.y >= button.y &&
         this.mouse.y <= button.y + button.h;
-      this.hoveredGameButton = hovered ? button.id : null;
-      this.canvas.style.cursor = hovered ? "pointer" : "default";
+      this.hoveredGameButton = hoveredHudToggle ? hudToggleButton.id : hoveredMenu ? button.id : null;
+      this.canvas.style.cursor = hoveredHudToggle || hoveredMenu ? "pointer" : "default";
     }
 
     refreshCustomizationHover() {
@@ -1634,8 +1710,14 @@
           this.mouse.y >= button.y &&
           this.mouse.y <= button.y + button.h
       );
+      const picker = this.getCustomizationColorPickerRect();
+      const hoveredPicker =
+        this.mouse.x >= picker.x &&
+        this.mouse.x <= picker.x + picker.w &&
+        this.mouse.y >= picker.y &&
+        this.mouse.y <= picker.y + picker.h;
       this.hoveredCustomizationButton = hoveredButton ? hoveredButton.id : null;
-      this.canvas.style.cursor = hoveredButton ? "pointer" : "default";
+      this.canvas.style.cursor = hoveredButton || hoveredPicker ? "pointer" : "default";
     }
 
     handleCanvasClick(event) {
@@ -1709,6 +1791,10 @@
           }
           return;
         }
+        if (this.hoveredGameButton === "hud_toggle") {
+          this.toggleHUDCollapsed();
+          return;
+        }
         if (this.hoveredGameButton === "menu") {
           this.openHomeConfirm();
         }
@@ -1755,12 +1841,15 @@
         this.completionNextHover = 0;
         this.homeConfirmCancelHover = 0;
         this.homeConfirmLeaveHover = 0;
+        this.hudToggleHover = 0;
         this.levelSelectBackHover = 0;
         this.canvas.style.cursor = "default";
         this.totalTimer = 0;
         this.totalDamage = 0;
         this.speedrunTimerStarted = false;
         this.homeConfirmOpen = false;
+        this.hudCollapsed = false;
+        this.hudCollapseAnim = 0;
         this.loadLevel(levelIndex);
       });
     }
@@ -1782,6 +1871,7 @@
         this.completionNextHover = 0;
         this.homeConfirmCancelHover = 0;
         this.homeConfirmLeaveHover = 0;
+        this.hudToggleHover = 0;
         this.levelSelectBackHover = 0;
         this.canvas.style.cursor = "default";
         this.totalTimer = 0;
@@ -1789,6 +1879,8 @@
         this.resetSpeedrunStats();
         this.speedrunTimerStarted = false;
         this.homeConfirmOpen = false;
+        this.hudCollapsed = false;
+        this.hudCollapseAnim = 0;
         this.loadLevel(0);
       });
     }
@@ -1810,12 +1902,15 @@
         this.completionNextHover = 0;
         this.homeConfirmCancelHover = 0;
         this.homeConfirmLeaveHover = 0;
+        this.hudToggleHover = 0;
         this.levelSelectBackHover = 0;
         this.canvas.style.cursor = "default";
         this.totalTimer = 0;
         this.totalDamage = 0;
         this.twoPlayerNotice = "";
         this.twoPlayerNoticeTimer = 0;
+        this.hudCollapsed = false;
+        this.hudCollapseAnim = 0;
         this.loadTagLevel(Math.floor(Math.random() * TAG_LEVELS.length));
       });
     }
@@ -1837,6 +1932,7 @@
         this.completionNextHover = 0;
         this.homeConfirmCancelHover = 0;
         this.homeConfirmLeaveHover = 0;
+        this.hudToggleHover = 0;
         this.levelSelectBackHover = 0;
         this.customizationDoneHover = 0;
         this.customizationBackHover = 0;
@@ -1851,6 +1947,8 @@
         this.tagTransferCooldown = 0;
         this.twoPlayerNotice = "";
         this.twoPlayerNoticeTimer = 0;
+        this.hudCollapsed = false;
+        this.hudCollapseAnim = 0;
         this.titleTrail.length = 0;
         this.titleTrailTimer = 0;
         this.titleBackdropPhase = Math.random() * Math.PI * 2;
@@ -2190,9 +2288,122 @@
 
     getWorldRenderScale() {
       if (this.gameMode === "tag") {
-        return 1;
+        return this.getTagWorldRenderScale();
       }
       return lerp(1, GOAL_EXPLOSION_ZOOM, easeInOutCubic(this.getGoalExplosionProgress()));
+    }
+
+    getTagWorldRenderScale() {
+      const viewportRatio = clamp(Math.min(this.width / 1280, this.height / 720), 0.72, 1);
+      const viewportScale = lerp(0.82, 1, (viewportRatio - 0.72) / 0.28);
+      const redPlayer = this.getTagPlayer("red");
+      const bluePlayer = this.getTagPlayer("blue");
+      const separation = Math.hypot(redPlayer.car.x - bluePlayer.car.x, redPlayer.car.y - bluePlayer.car.y);
+      const distanceScale = clamp(1 - Math.max(0, separation - TILE_SIZE * 2.5) / (TILE_SIZE * 12), 0.8, 1);
+      return Math.min(viewportScale, distanceScale);
+    }
+
+    getTagUILayoutMetrics() {
+      const scale = clamp(Math.min(this.width / 1280, this.height / 720), 0.72, 1);
+      const panelX = Math.round(Math.max(10, 24 * scale));
+      const panelY = Math.round(Math.max(10, 70 * scale));
+      const panelW = Math.round(Math.min(520 * scale, this.width - panelX * 2));
+      const padding = Math.round(20 * scale);
+      const columnGap = Math.round(18 * scale);
+      const singleColumn = panelW < 380;
+      const titleFontSize = Math.max(18, Math.round(24 * scale));
+      const subtitleFontSize = Math.max(13, Math.round(16 * scale));
+      const lineFontSize = Math.max(13, Math.round(18 * scale));
+      const controlsFontSize = Math.max(12, Math.round(16 * scale));
+      const headerHeight = Math.round(68 * scale);
+      const lineGap = Math.round(28 * scale);
+      return {
+        scale,
+        panelX,
+        panelY,
+        panelW,
+        padding,
+        columnGap,
+        singleColumn,
+        titleFontSize,
+        subtitleFontSize,
+        lineFontSize,
+        controlsFontSize,
+        headerHeight,
+        lineGap,
+      };
+    }
+
+    getTagHUDLayout() {
+      const metrics = this.getTagUILayoutMetrics();
+      const redPlayer = this.getTagPlayer("red");
+      const bluePlayer = this.getTagPlayer("blue");
+      const itPlayer = this.tagCars.find((player) => player.isIt);
+      const remaining = Math.max(0, TAG_MATCH_DURATION - this.tagElapsed);
+      const leftLines = [
+        { text: `Time Left    ${formatTime(remaining)}`, color: "#f0f7fb" },
+        { text: `Red Tagged   ${formatTime(redPlayer.taggedTime)}`, color: redPlayer.isIt ? "#ffe3e3" : "#ffd0d0" },
+        { text: `Blue Tagged  ${formatTime(bluePlayer.taggedTime)}`, color: bluePlayer.isIt ? "#dde9ff" : "#cfe0ff" },
+        { text: `It Right Now ${itPlayer ? itPlayer.label : "-"}`, color: "#f0f7fb" },
+      ];
+      if (this.tagTransferCooldown > 0) {
+        leftLines.push({ text: `Swap Cooldown ${this.tagTransferCooldown.toFixed(1)}s`, color: "#ffd166" });
+      }
+      const rightLines = [
+        { text: `Red Damage   ${Math.round(redPlayer.totalDamage)}`, color: "#ffd0d0" },
+        {
+          text: `Red Status   ${this.getDamageStatus(redPlayer)}`,
+          color: redPlayer.totalDamage >= FIRE_DAMAGE_START ? "#ff9f8b" : redPlayer.totalDamage >= SMOKE_DAMAGE_START ? "#ffd6d6" : "#ffbcbc",
+        },
+        { text: `Blue Damage  ${Math.round(bluePlayer.totalDamage)}`, color: "#cfe0ff" },
+        {
+          text: `Blue Status  ${this.getDamageStatus(bluePlayer)}`,
+          color: bluePlayer.totalDamage >= FIRE_DAMAGE_START ? "#ffb58a" : bluePlayer.totalDamage >= SMOKE_DAMAGE_START ? "#dde8ff" : "#b8d0ff",
+        },
+      ];
+      const bodyLineCount = metrics.singleColumn ? leftLines.length + rightLines.length : Math.max(leftLines.length, rightLines.length);
+      const panelH = metrics.headerHeight + bodyLineCount * metrics.lineGap + Math.round(24 * metrics.scale);
+      return {
+        metrics,
+        redPlayer,
+        bluePlayer,
+        leftLines,
+        rightLines,
+        panelH,
+        bodyStartY: metrics.panelY + metrics.headerHeight,
+        contentWidth: metrics.panelW - metrics.padding * 2,
+      };
+    }
+
+    getHUDToggleButtonForPanel(panelX, panelY, panelW, panelH) {
+      const tabW = 24;
+      const tabH = clamp(Math.round(panelH * 0.28), 44, 62);
+      const slideOffset = -Math.round((panelW - tabW) * this.hudCollapseAnim);
+      return {
+        id: "hud_toggle",
+        x: panelX + panelW - tabW + slideOffset,
+        y: panelY + Math.round((panelH - tabH) * 0.5),
+        w: tabW,
+        h: tabH,
+        slideOffset,
+      };
+    }
+
+    getHUDToggleButton() {
+      if (this.currentScreen !== "game") {
+        return null;
+      }
+      if (this.gameMode === "tag") {
+        const layout = this.getTagHUDLayout();
+        return this.getHUDToggleButtonForPanel(layout.metrics.panelX, layout.metrics.panelY, layout.metrics.panelW, layout.panelH);
+      }
+      const layout = this.getCampaignHUDLayout();
+      return this.getHUDToggleButtonForPanel(layout.panelX, layout.panelY, layout.panelW, layout.panelH);
+    }
+
+    toggleHUDCollapsed() {
+      this.hudCollapsed = !this.hudCollapsed;
+      this.refreshGameHover();
     }
 
     getFinishTileColors(tileX, tileY) {
@@ -2460,6 +2671,8 @@
     updateCampaignGame(dt) {
       this.refreshGameHover();
       this.gameExitHover = approachExp(this.gameExitHover, this.hoveredGameButton === "menu" ? 1 : 0, 16, dt);
+      this.hudToggleHover = approachExp(this.hudToggleHover, this.hoveredGameButton === "hud_toggle" ? 1 : 0, 16, dt);
+      this.hudCollapseAnim = approachExp(this.hudCollapseAnim, this.hudCollapsed ? 1 : 0, 16, dt);
       this.completionHomeHover = approachExp(this.completionHomeHover, this.hoveredCompletionButton === "home" ? 1 : 0, 16, dt);
       this.completionReplayHover = approachExp(this.completionReplayHover, this.hoveredCompletionButton === "replay" ? 1 : 0, 16, dt);
       this.completionNextHover = approachExp(this.completionNextHover, this.hoveredCompletionButton === "next" ? 1 : 0, 16, dt);
@@ -2563,6 +2776,8 @@
     updateTagGame(dt) {
       this.refreshGameHover();
       this.gameExitHover = approachExp(this.gameExitHover, this.hoveredGameButton === "menu" ? 1 : 0, 16, dt);
+      this.hudToggleHover = approachExp(this.hudToggleHover, this.hoveredGameButton === "hud_toggle" ? 1 : 0, 16, dt);
+      this.hudCollapseAnim = approachExp(this.hudCollapseAnim, this.hudCollapsed ? 1 : 0, 16, dt);
 
       const canManualRestart = !this.tagMatchFinished && this.tagCars.every((player) => player.fireSequenceTimer <= 0 && !player.exploding);
       if (canManualRestart && this.input.wasPressed("KeyR")) {
@@ -2751,11 +2966,12 @@
         return;
       }
 
-      const pickerX = this.width * 0.5 - 60;
-      const pickerY = this.height * 0.66;
+      const picker = this.getCustomizationColorPickerRect();
       this.colorInput.style.display = "block";
-      this.colorInput.style.left = `${pickerX}px`;
-      this.colorInput.style.top = `${pickerY}px`;
+      this.colorInput.style.left = `${picker.x}px`;
+      this.colorInput.style.top = `${picker.y}px`;
+      this.colorInput.style.width = `${picker.w}px`;
+      this.colorInput.style.height = `${picker.h}px`;
       this.colorInput.value = this.customizationDraftColor;
     }
 
@@ -4008,10 +4224,69 @@
       ctx.fillText(this.getCurrentCustomizationVariant().name, this.width * 0.5, this.height * 0.62);
       ctx.font = "16px Consolas, monospace";
       ctx.fillText("Use the arrows to swap cars", this.width * 0.5, this.height * 0.648);
-      ctx.fillText("Color Picker", this.width * 0.5, this.height * 0.69);
+      ctx.fillText("Paint Color", this.width * 0.5, this.height * 0.69);
       ctx.restore();
 
+      this.renderCustomizationColorPicker(ctx, now);
       this.renderCustomizationButtons(ctx);
+    }
+
+    renderCustomizationColorPicker(ctx, now) {
+      const picker = this.getCustomizationColorPickerRect();
+      const hovered =
+        this.currentScreen === "customization" &&
+        this.mouse.inside &&
+        this.mouse.x >= picker.x &&
+        this.mouse.x <= picker.x + picker.w &&
+        this.mouse.y >= picker.y &&
+        this.mouse.y <= picker.y + picker.h;
+      const pulse = 0.5 + Math.sin(now * 3.4) * 0.5;
+      const glowColor = mixHexColors(this.customizationDraftColor, "#9edfff", 0.36);
+      const fill = ctx.createLinearGradient(picker.x, picker.y, picker.x + picker.w, picker.y + picker.h);
+
+      ctx.save();
+      ctx.shadowColor = hexToRgba(glowColor, 0.3 + pulse * 0.08 + (hovered ? 0.18 : 0));
+      ctx.shadowBlur = 12 + pulse * 5 + (hovered ? 12 : 0);
+      fill.addColorStop(0, "rgba(7, 18, 28, 0.94)");
+      fill.addColorStop(1, "rgba(12, 34, 48, 0.92)");
+      ctx.fillStyle = fill;
+      ctx.strokeStyle = hovered ? "rgba(192, 236, 255, 0.9)" : "rgba(126, 205, 236, 0.48)";
+      ctx.lineWidth = hovered ? 2.5 : 2;
+      ctx.beginPath();
+      ctx.roundRect(picker.x, picker.y, picker.w, picker.h, 18);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      ctx.fillStyle = "rgba(238, 248, 255, 0.08)";
+      ctx.beginPath();
+      ctx.roundRect(picker.x + 8, picker.y + 8, picker.w - 16, 22, 10);
+      ctx.fill();
+
+      const swatchX = picker.x + 12;
+      const swatchY = picker.y + 12;
+      const swatchW = 68;
+      const swatchH = picker.h - 24;
+      const swatchFill = ctx.createLinearGradient(swatchX, swatchY, swatchX + swatchW, swatchY + swatchH);
+      swatchFill.addColorStop(0, mixHexColors(this.customizationDraftColor, "#ffffff", 0.18));
+      swatchFill.addColorStop(1, mixHexColors(this.customizationDraftColor, "#0d1016", 0.14));
+      ctx.fillStyle = swatchFill;
+      ctx.beginPath();
+      ctx.roundRect(swatchX, swatchY, swatchW, swatchH, 14);
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.18)";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = "#eaf7ff";
+      ctx.textAlign = "left";
+      ctx.font = "700 16px Consolas, monospace";
+      ctx.fillText("Choose paint", swatchX + swatchW + 16, picker.y + 29);
+      ctx.fillStyle = hovered ? "#fff0bf" : "#9ed7ee";
+      ctx.font = "16px Consolas, monospace";
+      ctx.fillText(this.customizationDraftColor.toUpperCase(), swatchX + swatchW + 16, picker.y + 52);
+      ctx.restore();
     }
 
     renderMenuBackdrop(ctx, now) {
@@ -5269,59 +5544,109 @@
       ctx.restore();
     }
 
-    renderTagUI(ctx) {
-      const panelX = 24;
-      const panelY = 70;
-      const panelW = Math.min(520, this.width - 48);
-      const panelH = 226;
-      const redPlayer = this.getTagPlayer("red");
-      const bluePlayer = this.getTagPlayer("blue");
-      const itPlayer = this.tagCars.find((player) => player.isIt);
-      const remaining = Math.max(0, TAG_MATCH_DURATION - this.tagElapsed);
-      const rightColX = panelX + Math.min(260, panelW * 0.5);
+    renderHUDToggleButton(ctx, button) {
+      const hover = this.hudToggleHover;
+      ctx.save();
+      ctx.translate(button.x + button.w * 0.5, button.y + button.h * 0.5);
+      ctx.scale(1 + hover * 0.05, 1 + hover * 0.05);
+      ctx.shadowColor = `rgba(135, 218, 255, ${0.16 + hover * 0.3})`;
+      ctx.shadowBlur = 8 + hover * 14;
+      const fill = ctx.createLinearGradient(-button.w * 0.5, -button.h * 0.5, button.w * 0.5, button.h * 0.5);
+      fill.addColorStop(0, "rgba(10, 33, 49, 0.96)");
+      fill.addColorStop(1, "rgba(17, 57, 78, 0.92)");
+      ctx.fillStyle = fill;
+      ctx.strokeStyle = `rgba(152, 223, 255, ${0.3 + hover * 0.44})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(-button.w * 0.5, -button.h * 0.5, button.w, button.h, 12);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
 
+      const direction = this.hudCollapsed ? 1 : -1;
+      ctx.fillStyle = hover > 0.01 ? "#f4fdff" : "#d6eaf3";
+      ctx.beginPath();
+      ctx.moveTo(direction < 0 ? 4 : -4, -10);
+      ctx.lineTo(direction < 0 ? -6 : 6, 0);
+      ctx.lineTo(direction < 0 ? 4 : -4, 10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    renderTagUI(ctx) {
+      const layout = this.getTagHUDLayout();
+      const { metrics, redPlayer, bluePlayer, leftLines, rightLines, panelH, bodyStartY, contentWidth } = layout;
+      const {
+        panelX,
+        panelY,
+        panelW,
+        padding,
+        columnGap,
+        singleColumn,
+        titleFontSize,
+        subtitleFontSize,
+        lineFontSize,
+        controlsFontSize,
+        headerHeight,
+        lineGap,
+      } = metrics;
+      const leftWidth = singleColumn ? contentWidth : Math.floor((contentWidth - columnGap) * 0.5);
+      const rightWidth = singleColumn ? contentWidth : contentWidth - leftWidth - columnGap;
+      const rightColX = panelX + padding + leftWidth + columnGap;
+      const toggleButton = this.getHUDToggleButtonForPanel(panelX, panelY, panelW, panelH);
+      const contentAlpha = clamp(1 - this.hudCollapseAnim * 2.4, 0, 1);
+
+      ctx.save();
+      ctx.translate(toggleButton.slideOffset, 0);
       ctx.fillStyle = "rgba(3, 8, 14, 0.74)";
-      ctx.fillRect(panelX, panelY, panelW, panelH);
+      ctx.beginPath();
+      ctx.roundRect(panelX, panelY, panelW, panelH, 12);
+      ctx.fill();
       ctx.strokeStyle = "rgba(126, 162, 186, 0.38)";
       ctx.lineWidth = 1.5;
-      ctx.strokeRect(panelX, panelY, panelW, panelH);
+      ctx.stroke();
 
+      ctx.globalAlpha *= contentAlpha;
       ctx.textAlign = "left";
       ctx.fillStyle = "#dceaf3";
-      ctx.font = "600 24px Consolas, monospace";
-      ctx.fillText("2P Tag", panelX + 20, panelY + 32);
+      ctx.font = `600 ${titleFontSize}px Consolas, monospace`;
+      ctx.fillText("2P Tag", panelX + padding, panelY + Math.round(32 * metrics.scale));
 
       ctx.fillStyle = "#84b6d3";
-      ctx.font = "16px Consolas, monospace";
-      ctx.fillText(this.level.name, panelX + 20, panelY + 56);
+      ctx.font = `${subtitleFontSize}px Consolas, monospace`;
+      ctx.fillText(fitTextToWidth(ctx, this.level.name, contentWidth), panelX + padding, panelY + Math.round(56 * metrics.scale));
 
-      ctx.fillStyle = "#f0f7fb";
-      ctx.font = "18px Consolas, monospace";
-      ctx.fillText(`Time Left    ${formatTime(remaining)}`, panelX + 20, panelY + 88);
-      ctx.fillStyle = redPlayer.isIt ? "#ffe3e3" : "#ffd0d0";
-      ctx.fillText(`Red Tagged   ${formatTime(redPlayer.taggedTime)}`, panelX + 20, panelY + 116);
-      ctx.fillStyle = bluePlayer.isIt ? "#dde9ff" : "#cfe0ff";
-      ctx.fillText(`Blue Tagged  ${formatTime(bluePlayer.taggedTime)}`, panelX + 20, panelY + 144);
-
-      ctx.fillStyle = "#f0f7fb";
-      ctx.fillText(`It Right Now ${itPlayer ? itPlayer.label : "-"}`, panelX + 20, panelY + 172);
-      if (this.tagTransferCooldown > 0) {
-        ctx.fillStyle = "#ffd166";
-        ctx.fillText(`Swap Cooldown ${this.tagTransferCooldown.toFixed(1)}s`, panelX + 20, panelY + 200);
+      ctx.font = `${lineFontSize}px Consolas, monospace`;
+      let lineY = bodyStartY;
+      for (const line of leftLines) {
+        ctx.fillStyle = line.color;
+        ctx.fillText(fitTextToWidth(ctx, line.text, leftWidth), panelX + padding, lineY);
+        lineY += lineGap;
       }
 
-      ctx.fillStyle = "#ffd0d0";
-      ctx.fillText(`Red Damage   ${Math.round(redPlayer.totalDamage)}`, rightColX, panelY + 88);
-      ctx.fillStyle = redPlayer.totalDamage >= FIRE_DAMAGE_START ? "#ff9f8b" : redPlayer.totalDamage >= SMOKE_DAMAGE_START ? "#ffd6d6" : "#ffbcbc";
-      ctx.fillText(`Red Status   ${this.getDamageStatus(redPlayer)}`, rightColX, panelY + 116);
-      ctx.fillStyle = "#cfe0ff";
-      ctx.fillText(`Blue Damage  ${Math.round(bluePlayer.totalDamage)}`, rightColX, panelY + 144);
-      ctx.fillStyle = bluePlayer.totalDamage >= FIRE_DAMAGE_START ? "#ffb58a" : bluePlayer.totalDamage >= SMOKE_DAMAGE_START ? "#dde8ff" : "#b8d0ff";
-      ctx.fillText(`Blue Status  ${this.getDamageStatus(bluePlayer)}`, rightColX, panelY + 172);
+      lineY = singleColumn ? bodyStartY + leftLines.length * lineGap : bodyStartY;
+      for (const line of rightLines) {
+        ctx.fillStyle = line.color;
+        ctx.fillText(
+          fitTextToWidth(ctx, line.text, singleColumn ? leftWidth : rightWidth),
+          singleColumn ? panelX + padding : rightColX,
+          lineY
+        );
+        lineY += lineGap;
+      }
+
+      ctx.restore();
+      this.renderHUDToggleButton(ctx, toggleButton);
 
       ctx.textAlign = "right";
       ctx.fillStyle = "rgba(235, 245, 250, 0.9)";
-      ctx.fillText("Red: WASD   Blue: Arrows   R restart   Space rematch", this.width - 30, this.height - 30);
+      ctx.font = `${controlsFontSize}px Consolas, monospace`;
+      ctx.fillText(
+        fitTextToWidth(ctx, "Red: WASD   Blue: Arrows   R restart   Space rematch", this.width - 60),
+        this.width - Math.max(16, Math.round(30 * metrics.scale)),
+        this.height - Math.max(16, Math.round(30 * metrics.scale))
+      );
       ctx.textAlign = "left";
 
       if (this.tagMatchFinished) {
@@ -5569,31 +5894,22 @@
         return;
       }
 
-      const panelX = 24;
-      const panelY = 70;
-      const panelW = 388;
-      const worldInfo = this.getCampaignWorldInfo();
-      const statLines = this.gameMode === "speedrun"
-        ? [
-            `Level Time  ${formatTime(this.levelTimer)}`,
-            `Total Time  ${formatTime(this.totalTimer)}`,
-            `Damage      ${Math.round(this.totalDamage)}`,
-            `Status      ${this.getDamageStatus()}`,
-          ]
-        : [
-            `Level Time  ${formatTime(this.levelTimer)}`,
-            `Damage      ${Math.round(this.totalDamage)}`,
-            `Status      ${this.getDamageStatus()}`,
-          ];
-      const panelH = 132 + statLines.length * 26 + 34;
-      const maxTextWidth = panelW - 40;
+      const layout = this.getCampaignHUDLayout();
+      const { panelX, panelY, panelW, panelH, worldInfo, statLines, maxTextWidth } = layout;
+      const toggleButton = this.getHUDToggleButtonForPanel(panelX, panelY, panelW, panelH);
+      const contentAlpha = clamp(1 - this.hudCollapseAnim * 2.4, 0, 1);
 
+      ctx.save();
+      ctx.translate(toggleButton.slideOffset, 0);
       ctx.fillStyle = "rgba(3, 8, 14, 0.74)";
-      ctx.fillRect(panelX, panelY, panelW, panelH);
+      ctx.beginPath();
+      ctx.roundRect(panelX, panelY, panelW, panelH, 12);
+      ctx.fill();
       ctx.strokeStyle = "rgba(126, 162, 186, 0.38)";
       ctx.lineWidth = 1.5;
-      ctx.strokeRect(panelX, panelY, panelW, panelH);
+      ctx.stroke();
 
+      ctx.globalAlpha *= contentAlpha;
       ctx.textAlign = "left";
       ctx.fillStyle = "#dceaf3";
       ctx.font = "600 24px Consolas, monospace";
@@ -5619,6 +5935,8 @@
         ctx.fillStyle = this.levelCompletionSummary && this.levelCompletionSummary.perfectRun ? "#ffd76a" : "#96d7f2";
         ctx.fillText(fitTextToWidth(ctx, "Level result locked in", maxTextWidth), panelX + 20, panelY + panelH - 20);
       }
+      ctx.restore();
+      this.renderHUDToggleButton(ctx, toggleButton);
 
       ctx.textAlign = "right";
       ctx.fillStyle = "rgba(235, 245, 250, 0.9)";
