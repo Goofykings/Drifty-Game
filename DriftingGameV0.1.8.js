@@ -73,7 +73,7 @@
     { id: "muscle", name: "GT", sprite: { x: 796, y: 248, w: 297, h: 474, renderWidth: 39.2, renderHeight: 68 } },
     { id: "roadster", name: "Roadster", sprite: { x: 1146, y: 246, w: 301, h: 476, renderWidth: 37.6, renderHeight: 68 } },
   ];
-  const START_LEVEL = 8; // 0-based campaign level index for testing.
+  const START_LEVEL = 0; // 0-based campaign level index for testing.
   const SAVE_STORAGE_KEY = "drifty-save-v1";
 
   const LEVELS = [
