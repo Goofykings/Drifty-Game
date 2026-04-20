@@ -1,10 +1,20 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Drifty-Game</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drift Into The Dark</title>
 </head>
 <body>
-    <!-- Make sure to update the version stated directly below to whatever version you are trying to play on-->
-    <script src="DriftingGameV0.2.0.js"></script>
+  <script>
+    window.DRIFTY_ONLINE_LEADERBOARD_CONFIG = {
+      supabaseUrl: "",
+      supabaseAnonKey: "",
+      tableName: "drifty_leaderboard_records",
+      submitRpcName: "submit_drifty_leaderboard_record",
+      pollIntervalMs: 15000,
+    };
+  </script>
+  <script src="./DriftingGameV0.2.1.js"></script>
 </body>
 </html>
