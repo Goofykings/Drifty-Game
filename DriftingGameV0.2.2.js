@@ -2259,8 +2259,9 @@
       const headerBottom = showSubcopy ? subtitle2Y : titleY + Math.round(18 * scale);
       const carScale = 6 * scale;
       const carCenterY = headerBottom + Math.round(135 * scale);
-      const carHalfHeight = 68 * carScale * 0.5;
-      const variantY = carCenterY + carHalfHeight + Math.round(24 * scale);
+      const previewVariant = this.getCarVariantDefinition(this.customizationDraftVariant);
+      const carVisibleHalfHeight = ((previewVariant.sprite?.renderWidth || CAR_WIDTH) * carScale) * 0.5;
+      const variantY = carCenterY + carVisibleHalfHeight + Math.round(8 * scale);
       const swapHintY = variantY + Math.round(24 * scale);
       const paintLabelY = swapHintY + Math.round(30 * scale);
       const buttonWidth = Math.max(66, Math.min(Math.round(154 * scale), (this.width - margin * 2 - Math.round(24 * scale)) * 0.5));
@@ -6267,8 +6268,7 @@
       if (layout.showSubcopy) {
         ctx.fillStyle = "rgba(178, 213, 240, 0.88)";
         ctx.font = `${layout.subtitleSize}px Consolas, monospace`;
-        ctx.fillText(fitTextToWidth(ctx, "Pick a car body and paint color for your ride.", this.width - layout.margin * 2), this.width * 0.5, layout.subtitle1Y);
-        ctx.fillText(fitTextToWidth(ctx, "Use Done to save it, or Back to cancel.", this.width - layout.margin * 2), this.width * 0.5, layout.subtitle2Y);
+        ctx.fillText(fitTextToWidth(ctx, "Pick a car body and paint color.", this.width - layout.margin * 2), this.width * 0.5, layout.subtitle1Y);
       }
       ctx.restore();
 
