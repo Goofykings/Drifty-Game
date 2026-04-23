@@ -6015,10 +6015,10 @@
       ctx.textAlign = "center";
       ctx.fillStyle = "#edf7ff";
       ctx.font = "700 56px Consolas, monospace";
-      ctx.fillText("World Records", this.width * 0.5, this.height * 0.16);
+      const titleY = this.height * 0.16;
+      ctx.fillText("World Records", this.width * 0.5, titleY);
       ctx.fillStyle = "rgba(178, 213, 240, 0.88)";
       ctx.font = "18px Consolas, monospace";
-      ctx.fillText("Separate from your personal bests", this.width * 0.5, this.height * 0.205);
       const leaderboardStatusColor = this.onlineLeaderboardStatusTone === "online"
         ? "rgba(154, 255, 210, 0.92)"
         : this.onlineLeaderboardStatusTone === "offline"
@@ -6026,7 +6026,7 @@
           : "rgba(210, 233, 255, 0.9)";
       ctx.fillStyle = leaderboardStatusColor;
       ctx.font = "14px Consolas, monospace";
-      ctx.fillText(this.onlineLeaderboardStatusText, this.width * 0.5, this.height * 0.232);
+      ctx.fillText(this.onlineLeaderboardStatusText, this.width * 0.5, titleY + 26);
       ctx.restore();
 
       const panelGap = 18;
