@@ -8320,7 +8320,7 @@
 
       ctx.fillStyle = "#90c9de";
       ctx.font = `${Math.max(12, Math.round(18 * overlayScale))}px Consolas, monospace`;
-      const lines = wrapTextToLines(ctx, "Complete the level to make it valid for publishing. You can replay it as many times as you want, then publish when you are happy with your time.", panelW - Math.round(56 * overlayScale), 3);
+      const lines = wrapTextToLines(ctx, "Complete the level to make it valid for publishing. Try to get your best time, then publish it!", panelW - Math.round(56 * overlayScale), 3);
       lines.forEach((line, index) => {
         ctx.fillText(line, 0, -Math.round(14 * overlayScale) + index * Math.round(24 * overlayScale));
       });
