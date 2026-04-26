@@ -134,7 +134,7 @@
 
     .grid {
       display: grid;
-      grid-template-columns: 1.1fr 0.9fr;
+      grid-template-columns: 1fr;
       gap: 16px;
     }
 
@@ -190,10 +190,45 @@
       margin-bottom: 12px;
     }
 
+    .leaderboard-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .tab-button {
+      background: rgba(12, 33, 48, 0.9);
+      border-color: rgba(150, 224, 255, 0.24);
+      color: #dff6ff;
+    }
+
+    .tab-button.active {
+      background: rgba(20, 90, 61, 0.94);
+      border-color: rgba(154, 255, 210, 0.48);
+      color: #eafff2;
+    }
+
+    .leaderboard-columns {
+      display: grid;
+      grid-template-columns: minmax(240px, 1.5fr) minmax(110px, 0.8fr) minmax(130px, 0.95fr) minmax(90px, 0.7fr) minmax(110px, 0.9fr) minmax(120px, 0.95fr) auto;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding: 0 10px;
+      align-items: end;
+    }
+
+    .column-label {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
     .leaderboard-row {
       display: grid;
-      grid-template-columns: 1.4fr repeat(5, minmax(0, 1fr)) auto;
-      gap: 8px;
+      grid-template-columns: minmax(240px, 1.5fr) minmax(110px, 0.8fr) minmax(130px, 0.95fr) minmax(90px, 0.7fr) minmax(110px, 0.9fr) minmax(120px, 0.95fr) auto;
+      gap: 10px;
       align-items: center;
       background: var(--panel-2);
       border: 1px solid rgba(154, 255, 210, 0.1);
@@ -215,8 +250,8 @@
     }
 
     @media (max-width: 980px) {
-      .grid {
-        grid-template-columns: 1fr;
+      .leaderboard-columns {
+        display: none;
       }
 
       .leaderboard-row {
@@ -277,21 +312,29 @@
           <div id="approvedLevelsList" class="list"></div>
         </div>
       </div>
+    </div>
 
-      <div>
-        <div class="panel section">
-          <div class="title">
-            <div>
-              <h2>Leaderboard Records</h2>
-              <p class="muted">Search, edit, or delete global leaderboard rows.</p>
-            </div>
-          </div>
-          <div class="leaderboard-filter">
-            <input id="leaderboardFilter" type="text" placeholder="Filter by key, scope, or name">
-          </div>
-          <div id="leaderboardList" class="list"></div>
+    <div class="panel section">
+      <div class="title">
+        <div>
+          <h2>Leaderboard Records</h2>
+          <p class="muted">Search, edit, or delete daily, weekly, and all-time leaderboard rows.</p>
         </div>
       </div>
+      <div class="leaderboard-filter">
+        <input id="leaderboardFilter" type="text" placeholder="Filter by key, scope, date/week, or name">
+      </div>
+      <div id="leaderboardPeriodTabs" class="leaderboard-tabs"></div>
+      <div class="leaderboard-columns">
+        <span class="column-label">Record</span>
+        <span class="column-label">Time</span>
+        <span class="column-label">Player</span>
+        <span class="column-label">Deaths</span>
+        <span class="column-label">Car Variant</span>
+        <span class="column-label">Car Color</span>
+        <span class="column-label">Actions</span>
+      </div>
+      <div id="leaderboardList" class="list"></div>
     </div>
 
     <div id="appStatus" class="status"></div>
