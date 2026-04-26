@@ -13,12 +13,18 @@
     communityLevelsTableName: "drifty_community_levels",
     communitySubmissionsTableName: "drifty_community_level_submissions",
   };
+  const LEADERBOARD_PERIODS = [
+    { id: "daily", label: "Daily" },
+    { id: "weekly", label: "Weekly" },
+    { id: "all_time", label: "All-Time" },
+  ];
 
   const state = {
     unlocked: false,
     submissions: [],
     approvedLevels: [],
     leaderboardRows: [],
+    leaderboardPeriod: "all_time",
     filterText: "",
   };
 
@@ -34,6 +40,7 @@
     submissionCount: document.getElementById("submissionCount"),
     submissionList: document.getElementById("submissionList"),
     approvedLevelsList: document.getElementById("approvedLevelsList"),
+    leaderboardPeriodTabs: document.getElementById("leaderboardPeriodTabs"),
     leaderboardFilter: document.getElementById("leaderboardFilter"),
     leaderboardList: document.getElementById("leaderboardList"),
   };
@@ -107,6 +114,133 @@
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(centiseconds).padStart(2, "0")}`;
   }
 
+  function toTitleWord(value) {
+    const text = String(value ?? "").trim();
+    if (!text) {
+      return "";
+    }
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  function formatScopeLabel(scope, levelIndex) {
+    const scopeText = String(scope ?? "").trim();
+    const parts = scopeText.split("_");
+    if (parts.length >= 2 && parts[0] === "level") {
+      const mode = parts[1] || "normal";
+      const levelNumber = Number.isInteger(levelIndex) ? levelIndex + 1 : null;
+      const suffix = mode === "normal" ? "" : ` ${toTitleWord(mode)}`;
+      return levelNumber != null ? `Level ${levelNumber}${suffix}` : `Level${suffix}`;
+    }
+    if (parts.length >= 2 && parts[0] === "speedrun") {
+      const mode = parts[1];
+      const versionBits = parts.slice(2).join("_");
+      const match = versionBits.match(/^levels_(\d+)/);
+      const levelCount = match ? Number(match[1]) : null;
+      const modeLabel = toTitleWord(mode);
+      return levelCount != null
+        ? `Speedrun ${modeLabel} (${levelCount} levels)`
+        : `Speedrun ${modeLabel}`;
+    }
+    if (Number.isInteger(levelIndex)) {
+      return `Level ${levelIndex + 1}`;
+    }
+    return scopeText || "Leaderboard Record";
+  }
+
+  function getLeaderboardPeriod(row) {
+    const explicitPeriod = String(row?.leaderboard_period ?? "").trim();
+    if (LEADERBOARD_PERIODS.some((period) => period.id === explicitPeriod)) {
+      return explicitPeriod;
+    }
+    const recordKeyPeriod = String(row?.record_key ?? "").split(":")[0];
+    return LEADERBOARD_PERIODS.some((period) => period.id === recordKeyPeriod) ? recordKeyPeriod : "all_time";
+  }
+
+  function getLeaderboardPeriodKey(row) {
+    const explicitKey = String(row?.period_key ?? "").trim();
+    if (explicitKey) {
+      return explicitKey;
+    }
+    const period = getLeaderboardPeriod(row);
+    if (period === "all_time") {
+      return "all_time";
+    }
+    const parts = String(row?.record_key ?? "").split(":");
+    return parts.length >= 4 ? parts[1] : "";
+  }
+
+  function getLeaderboardRowSortMeta(row) {
+    const scopeText = String(row?.scope ?? "").trim();
+    const parts = scopeText.split("_");
+    const hasLevelIndex = Number.isInteger(row?.level_index);
+    const levelIndex = hasLevelIndex ? row.level_index : Number.MAX_SAFE_INTEGER;
+    const periodKey = getLeaderboardPeriodKey(row);
+
+    if (parts[0] === "level") {
+      const mode = parts[1] || "normal";
+      const modeOrder = mode === "normal" ? 0 : mode === "perfect" ? 1 : mode === "blackout" ? 2 : 3;
+      return {
+        periodKey,
+        section: 0,
+        modeOrder,
+        levelIndex,
+        scopeText,
+      };
+    }
+
+    if (parts[0] === "speedrun") {
+      const mode = parts[1] || "normal";
+      const modeOrder = mode === "normal" ? 0 : mode === "perfect" ? 1 : mode === "blackout" ? 2 : 3;
+      return {
+        periodKey,
+        section: 1,
+        modeOrder,
+        levelIndex: Number.MAX_SAFE_INTEGER,
+        scopeText,
+      };
+    }
+
+    return {
+      periodKey,
+      section: 2,
+      modeOrder: 0,
+      levelIndex,
+      scopeText,
+    };
+  }
+
+  function isCurrentLeaderboardRow(row) {
+    const scopeText = String(row?.scope ?? "").trim();
+    if (!Number.isInteger(row?.level_index) || row.level_index !== 6) {
+      return true;
+    }
+    if (scopeText.startsWith("level_normal") || scopeText.startsWith("level_perfect") || scopeText.startsWith("level_blackout")) {
+      return scopeText.includes("level7_reset_v1");
+    }
+    return true;
+  }
+
+  function compareLeaderboardRows(a, b) {
+    const left = getLeaderboardRowSortMeta(a);
+    const right = getLeaderboardRowSortMeta(b);
+    if (left.periodKey !== right.periodKey) {
+      return right.periodKey.localeCompare(left.periodKey);
+    }
+    if (left.section !== right.section) {
+      return left.section - right.section;
+    }
+    if (left.modeOrder !== right.modeOrder) {
+      return left.modeOrder - right.modeOrder;
+    }
+    if (left.levelIndex !== right.levelIndex) {
+      return left.levelIndex - right.levelIndex;
+    }
+    if (left.scopeText !== right.scopeText) {
+      return left.scopeText.localeCompare(right.scopeText);
+    }
+    return String(a?.record_key ?? "").localeCompare(String(b?.record_key ?? ""));
+  }
+
   async function loadPendingSubmissions() {
     const config = getConfig();
     const params = new URLSearchParams({
@@ -130,22 +264,45 @@
 
   async function loadLeaderboardRows() {
     const config = getConfig();
-    const params = new URLSearchParams({
-      select: "record_key,scope,level_index,time_ms,player_name,car_variant,car_color,deaths,updated_at",
-      order: "updated_at.desc",
-    });
-    const url = `${getBaseUrl()}/rest/v1/${config.leaderboardTableName}?${params.toString()}`;
-    state.leaderboardRows = await restFetch(url, { headers: getHeaders(false) }) || [];
+    const selectOptions = [
+      "record_key,leaderboard_period,period_key,scope,level_index,time_ms,player_name,car_variant,car_color,deaths,updated_at",
+      "record_key,leaderboard_period,period_key,scope,level_index,time_ms,car_variant,car_color,deaths,updated_at",
+      "record_key,scope,level_index,time_ms,player_name,car_variant,car_color,deaths,updated_at",
+      "record_key,scope,level_index,time_ms,car_variant,car_color,deaths,updated_at",
+    ];
+    let lastError = null;
+    for (const select of selectOptions) {
+      const params = new URLSearchParams({
+        select,
+        order: "updated_at.desc",
+      });
+      const url = `${getBaseUrl()}/rest/v1/${config.leaderboardTableName}?${params.toString()}`;
+      try {
+        state.leaderboardRows = await restFetch(url, { headers: getHeaders(false) }) || [];
+        return;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError || new Error("Leaderboard rows failed to load.");
   }
 
   async function refreshAll() {
     setAppStatus("Refreshing admin data...");
-    await Promise.all([
+    const results = await Promise.allSettled([
       loadPendingSubmissions(),
       loadApprovedLevels(),
       loadLeaderboardRows(),
     ]);
     render();
+    const failures = results.filter((result) => result.status === "rejected");
+    if (failures.length > 0) {
+      const message = failures
+        .map((failure) => failure.reason?.message || "Unknown request failed")
+        .join(" | ");
+      setAppStatus(`Admin data partially loaded: ${message}`, "error");
+      return;
+    }
     setAppStatus("Admin data refreshed.", "ok");
   }
 
@@ -229,10 +386,14 @@
   }
 
   function renderLeaderboard() {
-    const filtered = state.leaderboardRows.filter((row) => {
-      const haystack = `${row.record_key} ${row.scope} ${row.player_name || ""}`.toLowerCase();
-      return haystack.includes(state.filterText);
-    });
+    const filtered = state.leaderboardRows
+      .filter(isCurrentLeaderboardRow)
+      .filter((row) => getLeaderboardPeriod(row) === state.leaderboardPeriod)
+      .filter((row) => {
+        const haystack = `${row.record_key} ${row.scope} ${row.player_name || ""} ${getLeaderboardPeriodKey(row)}`.toLowerCase();
+        return haystack.includes(state.filterText);
+      })
+      .sort(compareLeaderboardRows);
     if (filtered.length === 0) {
       els.leaderboardList.innerHTML = `<div class="card"><p class="muted">No leaderboard rows match this filter.</p></div>`;
       return;
@@ -240,8 +401,8 @@
     els.leaderboardList.innerHTML = filtered.map((row) => `
       <div class="leaderboard-row" data-record-key="${escapeHtml(row.record_key)}">
         <div>
-          <div>${escapeHtml(row.record_key)}</div>
-          <div class="muted small">${escapeHtml(row.scope)}${row.level_index == null ? "" : ` | level ${escapeHtml(row.level_index)}`}</div>
+          <div>${escapeHtml(formatScopeLabel(row.scope, row.level_index))}</div>
+          <div class="muted small">${escapeHtml(getLeaderboardPeriodKey(row))} | ${escapeHtml(row.record_key)}</div>
         </div>
         <input data-field="time_ms" type="number" min="0" step="0.001" value="${escapeHtml(row.time_ms)}" aria-label="Time">
         <input data-field="player_name" type="text" maxlength="10" value="${escapeHtml(row.player_name || "")}" aria-label="Player name">
@@ -256,9 +417,21 @@
     `).join("");
   }
 
+  function renderLeaderboardTabs() {
+    els.leaderboardPeriodTabs.innerHTML = LEADERBOARD_PERIODS.map((period) => `
+      <button
+        type="button"
+        class="tab-button${state.leaderboardPeriod === period.id ? " active" : ""}"
+        data-action="select-leaderboard-period"
+        data-id="${escapeHtml(period.id)}"
+      >${escapeHtml(period.label)}</button>
+    `).join("");
+  }
+
   function render() {
     renderSubmissions();
     renderApprovedLevels();
+    renderLeaderboardTabs();
     renderLeaderboard();
   }
 
@@ -369,6 +542,13 @@
 
     const action = button.dataset.action;
     const id = button.dataset.id;
+    if (action === "select-leaderboard-period") {
+      state.leaderboardPeriod = LEADERBOARD_PERIODS.some((period) => period.id === id) ? id : "all_time";
+      renderLeaderboardTabs();
+      renderLeaderboard();
+      return;
+    }
+
     button.disabled = true;
     try {
       if (action === "approve-submission") {
